@@ -1,0 +1,15 @@
+# Ignore Python cache files
+__pycache__/
+
+# Ignore compiled Python files
+*.py[cod]
+
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore environment files
+.env
+.venv
+
+# Ignore macOS system files
+.DS_Store
