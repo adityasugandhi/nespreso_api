@@ -19,7 +19,9 @@ async def fetch_predictions(lat, lon, date, filename="output.nc", format="netcdf
     """
 
     # Define the API URL
-    API_URL = "http://0.0.0.0:8000/predict"
+    # API_URL = "http://0.0.0.0:8000/predict" # old, local for testing
+    API_URL = "http://poseidon.sc.fsu.edu:8000/predict" # working remote
+    # API_URL = "http://144.174.11.107:8000/predict" # working remote (IP)
 
     # Prepare the data payload
     data = {

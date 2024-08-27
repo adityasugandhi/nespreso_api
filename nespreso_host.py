@@ -24,7 +24,7 @@ def load_model_and_dataset():
     print(f"Loading dataset and model to {device}")
     
     # Load dataset
-    dataset_pickle_file = '/unity/g2/jmiranda/SubsurfaceFields/GEM_SubsurfaceFields/config_dataset_full.pkl'
+    dataset_pickle_file = '/COAPS-storage/unity/g2/jmiranda/SubsurfaceFields/GEM_SubsurfaceFields/config_dataset_full.pkl'
     if os.path.exists(dataset_pickle_file):
         with open(dataset_pickle_file, 'rb') as file:
             data = pickle.load(file)
@@ -33,7 +33,7 @@ def load_model_and_dataset():
     full_dataset.n_components = 15
     
     # Load model
-    model_path = '/unity/g2/jmiranda/SubsurfaceFields/GEM_SubsurfaceFields/saved_models/model_Test Loss: 14.2710_2024-02-26 12:47:18_sat.pth'
+    model_path = '/COAPS-storage/unity/g2/jmiranda/SubsurfaceFields/GEM_SubsurfaceFields/saved_models/model_Test Loss: 14.2710_2024-02-26 12:47:18_sat.pth'
     model = torch.load(model_path, map_location=device)
     model.to(device)
     model.eval()
@@ -88,9 +88,9 @@ async def startup_event():
 
 # Define the input validation schema using Pydantic
 class PredictRequest(BaseModel):
-    lat: conlist(float, min_items=1)
-    lon: conlist(float, min_items=1)
-    date: conlist(str, min_items=1)  # Expecting an array of dates in 'YYYY-MM-DD' format
+    lat: conlist(float, min_length=1)
+    lon: conlist(float, min_length=1)
+    date: conlist(str, min_length=1)  # Expecting an array of dates in 'YYYY-MM-DD' format
     format: str = "json"  # "json" or "netcdf"
 
 def datetime_to_datenum(python_datetime):
@@ -158,6 +158,7 @@ async def predict(request: PredictRequest):
 
 # if __name__ == "__main__":
 #     import uvicorn
-#     uvicorn.run("API_host_nespreso:app", host="0.0.0.0", port=8000, reload=True)
+#     uvicorn.run("nespreso_host:app", host="0.0.0.0", port=8000, reload=True)
 
-# $ uvicorn API_host_nespreso:app --host 0.0.0.0 --port 8000 --reload
+# $ uvicorn nespreso_host:app --host 0.0.0.0 --port 8000 --reload (for development, local only)
+# $ gunicorn -w 2 -k uvicorn.workers.UvicornWorker nespreso_host:app --bind 0.0.0.0:8000
