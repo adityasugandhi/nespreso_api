@@ -140,6 +140,9 @@ def load_satellite_data(TIME, LAT, LON):
             sst_date, sst_lats, sst_lons = get_sst_by_date(sst_folder, c_date, bbox)
             interpolator_sst = RegularGridInterpolator((sst_lats, sst_lons), sst_date.analysed_sst.values[0], bounds_error=False, fill_value=None)
             sst_data[date_idx] = interpolator_sst(coordinates)
+            if (sst_data[date_idx] < 0).any() or (sst_data[date_idx] > 350).any():
+                sst_data[date_idx] = np.nan
+                print(f"Invalid SST on date {c_date}, value: {sst_data[date_idx]}, coordinates: {coordinates}, lats: {sst_lats}, lons: {sst_lons}")
         except Exception as e:
             print("SST not found for date ", c_date, "Error: ", str(e))
             continue

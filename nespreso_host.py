@@ -120,6 +120,7 @@ async def predict(request: PredictRequest):
             
         # Prepare inputs and make predictions
         sss, sst, aviso = load_satellite_data(times, lat, lon)
+        missing_data = np.max([np.sum(np.isnan(sss)), np.sum(np.isnan(sst)), np.sum(np.isnan(aviso))])
         dtime = [datetime_to_datenum(time) for time in times]
         input_data = prepare_inputs(dtime, lat, lon, sss, sst, aviso, full_dataset.input_params)
         input_data = input_data.to(device)
@@ -140,12 +141,22 @@ async def predict(request: PredictRequest):
                 "depth": depth.tolist(),
                 "time": [time.isoformat() for time in times],
                 "lat": lat.tolist(),
-                "lon": lon.tolist()
+                "lon": lon.tolist(),
+                "missing_data": missing_data,
+                "success": len(lat) - missing_data
             }
         elif request.format == "netcdf":
             netcdf_file = f"/tmp/NeSPReSO_{request.date[0]}_to_{request.date[-1]}.nc"
             save_to_netcdf(pred_T, pred_S, depth, sss, sst, aviso, times, lat, lon, netcdf_file)
-            return FileResponse(netcdf_file, media_type='application/x-netcdf', filename=f'NeSPReSO_{request.date[0]}_to_{request.date[-1]}.nc')
+            return FileResponse(
+                netcdf_file, 
+                media_type='application/x-netcdf', 
+                filename=f'NeSPReSO_{request.date[0]}_to_{request.date[-1]}.nc',
+                headers={
+                    "X-Missing-Data": str(missing_data),
+                    "X-Successful-Data": str(len(lat) - missing_data)
+                }
+            )
         else:
             raise HTTPException(status_code=400, detail="Invalid format requested")
     

@@ -19,9 +19,7 @@ async def fetch_predictions(lat, lon, date, filename="output.nc", format="netcdf
     """
 
     # Define the API URL
-    # API_URL = "http://0.0.0.0:8000/predict" # old, local for testing
-    API_URL = "http://poseidon.sc.fsu.edu:8000/predict" # working remote
-    # API_URL = "http://144.174.11.107:8000/predict" # working remote (IP)
+    API_URL = "http://144.174.11.107:8000/predict" # working remote (IP)
 
     # Prepare the data payload
     data = {
@@ -31,8 +29,11 @@ async def fetch_predictions(lat, lon, date, filename="output.nc", format="netcdf
         "format": format
     }
 
+    # Set a custom timeout (e.g., 60 seconds)
+    timeout = httpx.Timeout(60.0, connect=10.0)
+
     # Make an async request to the API
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=timeout) as client:
         response = await client.post(API_URL, json=data)
         
         if response.status_code == 200:
@@ -43,10 +44,21 @@ async def fetch_predictions(lat, lon, date, filename="output.nc", format="netcdf
                 with open(filename, "wb") as f:
                     f.write(response.content)
                 print(f"NetCDF file saved as {filename}")
+                
+                # Get missing data information from headers
+                missing_data = response.headers.get('X-Missing-Data')
+                successful_data = response.headers.get('X-Successful-Data')
+                print(f"{successful_data} profiles were successfully generated.")
+                if missing_data:
+                    print(f"{missing_data} profiles are missing satellite data.")
                 return filename
             else:
                 # Assume it's JSON and return the data
-                return response.json()
+                result = response.json()
+                print(f"{result['success']} profiles were successfully generated.")
+                if result['missing_data']:
+                    print(f"{result['missing_data']} profiles are missing satellite data.")
+                return result
         else:
             print(f"Request failed with status code {response.status_code}")
             print("Response content:", response.content)
@@ -76,9 +88,9 @@ def get_predictions(lat, lon, date, filename="output.nc", format="netcdf"):
 # Example of how to use the function from another script
 if __name__ == "__main__":
     # Example usage
-    latitudes = [45.0, 46.0, 47.0]
-    longitudes = [-30.0, -29.0, -28.0]
-    dates = ["2020-08-20", "2020-08-21", "2020-08-22"]
+    latitudes = [25.0, 26.0, 27.0]
+    longitudes = [-83.0, -84.0, -85.0]
+    dates = ["2018-08-20", "2018-08-21", "2018-08-22"]
     output_file = "my_output.nc"
 
     result = get_predictions(latitudes, longitudes, dates, filename=output_file, format="netcdf")
