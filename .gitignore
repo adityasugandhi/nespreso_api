@@ -1,6 +1,9 @@
 # Ignore Python cache files
 __pycache__/
 
+# Ignore logs
+logs/
+
 # Ignore compiled Python files
 *.py[cod]
 
@@ -13,3 +16,4 @@ __pycache__/
 
 # Ignore macOS system files
 .DS_Store
+my_output.nc

@@ -1,4 +1,6 @@
-from fastapi import FastAPI, HTTPException
+import csv
+from datetime import datetime
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, conlist
 import os
 import sys
@@ -7,7 +9,6 @@ import pickle
 import torch
 import numpy as np
 import xarray as xr
-from datetime import datetime
 from fastapi.responses import FileResponse
 from singleFileModel_SAT import TemperatureSalinityDataset, PredictionModel, load_satellite_data, prepare_inputs
 
@@ -19,26 +20,14 @@ sys.modules['__mp_main__'].PredictionModel = PredictionModel
 
 app = FastAPI()
 
-def load_model_and_dataset():
-    device = torch.device("cuda")
-    print(f"Loading dataset and model to {device}")
-    
-    # Load dataset
-    dataset_pickle_file = '/COAPS-storage/unity/g2/jmiranda/SubsurfaceFields/GEM_SubsurfaceFields/config_dataset_full.pkl'
-    if os.path.exists(dataset_pickle_file):
-        with open(dataset_pickle_file, 'rb') as file:
-            data = pickle.load(file)
-            full_dataset = data['full_dataset']
-    
-    full_dataset.n_components = 15
-    
-    # Load model
-    model_path = '/COAPS-storage/unity/g2/jmiranda/SubsurfaceFields/GEM_SubsurfaceFields/saved_models/model_Test Loss: 14.2710_2024-02-26 12:47:18_sat.pth'
-    model = torch.load(model_path, map_location=device)
-    model.to(device)
-    model.eval()
-    
-    return model, full_dataset, device
+# Define the path to the CSV log file
+CSV_LOG_FILE = '/home/jrm22n/nespreso_api/nespreso_api/log/nespreso_queries_log.csv'
+
+# Ensure the CSV file has a header row if it doesn't exist
+if not os.path.exists(CSV_LOG_FILE):
+    with open(CSV_LOG_FILE, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(['timestamp', 'lat', 'lon', 'date', 'missing_data', 'success'])
 
 def save_to_netcdf(pred_T, pred_S, depth, sss, sst, aviso, times, lat, lon, file_name='output.nc'):
     profile_number = np.arange(pred_T.shape[1])
@@ -81,6 +70,27 @@ def save_to_netcdf(pred_T, pred_S, depth, sss, sst, aviso, times, lat, lon, file
 
     ds.to_netcdf(file_name, encoding=encoding)
 
+def load_model_and_dataset():
+    device = torch.device("cuda")
+    print(f"Loading dataset and model to {device}")
+    
+    # Load dataset
+    dataset_pickle_file = '/COAPS-storage/unity/g2/jmiranda/SubsurfaceFields/GEM_SubsurfaceFields/config_dataset_full.pkl'
+    if os.path.exists(dataset_pickle_file):
+        with open(dataset_pickle_file, 'rb') as file:
+            data = pickle.load(file)
+            full_dataset = data['full_dataset']
+    
+    full_dataset.n_components = 15
+    
+    # Load model
+    model_path = '/COAPS-storage/unity/g2/jmiranda/SubsurfaceFields/GEM_SubsurfaceFields/saved_models/model_Test Loss: 14.2710_2024-02-26 12:47:18_sat.pth'
+    model = torch.load(model_path, map_location=device)
+    model.to(device)
+    model.eval()
+    
+    return model, full_dataset, device
+
 @app.on_event("startup")
 async def startup_event():
     global model, full_dataset, device
@@ -91,20 +101,9 @@ class PredictRequest(BaseModel):
     lat: conlist(float, min_length=1)
     lon: conlist(float, min_length=1)
     date: conlist(str, min_length=1)  # Expecting an array of dates in 'YYYY-MM-DD' format
-    format: str = "json"  # "json" or "netcdf"
-
-def datetime_to_datenum(python_datetime):
-    days_from_year_1_to_year_0 = 366
-    matlab_base = datetime(1, 1, 1).toordinal() - days_from_year_1_to_year_0
-    ordinal = python_datetime.toordinal()
-    days_difference = ordinal - matlab_base
-
-    hour, minute, second = python_datetime.hour, python_datetime.minute, python_datetime.second
-    matlab_datenum = days_difference + (hour / 24.0) + (minute / 1440.0) + (second / 86400.0)
-    return matlab_datenum
 
 @app.post("/predict")
-async def predict(request: PredictRequest):
+async def predict(request: PredictRequest, req: Request):
     try:
         # Validate and convert the dates
         times = [datetime.strptime(date, "%Y-%m-%d") for date in request.date]
@@ -133,39 +132,74 @@ async def predict(request: PredictRequest):
         pred_T = synthetics[0]
         pred_S = synthetics[1]
         depth = np.arange(full_dataset.min_depth, full_dataset.max_depth + 1)
+
+        # Log request information to CSV (initial log with 'Pending' status)
+        log_entries = []
+        for i in range(len(lat)):
+            log_entries.append([datetime.utcnow().isoformat(), req.client.host, lat[i], lon[i], times[i].isoformat(), 
+                                missing_data, 'Pending'])
         
-        if request.format == "json":
-            return {
-                "Temperature": pred_T.tolist(),
-                "Salinity": pred_S.tolist(),
-                "depth": depth.tolist(),
-                "time": [time.isoformat() for time in times],
-                "lat": lat.tolist(),
-                "lon": lon.tolist(),
-                "missing_data": missing_data,
-                "success": len(lat) - missing_data
+        with open(CSV_LOG_FILE, mode='a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerows(log_entries)
+
+        # Attempt to generate and send the NetCDF file
+        netcdf_file = f"/tmp/NeSPReSO_{request.date[0]}_to_{request.date[-1]}.nc"
+        save_to_netcdf(pred_T, pred_S, depth, sss, sst, aviso, times, lat, lon, netcdf_file)
+
+        # If successful, update all the relevant log entries to indicate success
+        update_log_status(CSV_LOG_FILE, log_entries, 'Success')
+
+        return FileResponse(
+            netcdf_file, 
+            media_type='application/x-netcdf', 
+            filename=f'NeSPReSO_{request.date[0]}_to_{request.date[-1]}.nc',
+            headers={
+                "X-Missing-Data": str(missing_data),
+                "X-Successful-Data": str(len(lat) - missing_data)
             }
-        elif request.format == "netcdf":
-            netcdf_file = f"/tmp/NeSPReSO_{request.date[0]}_to_{request.date[-1]}.nc"
-            save_to_netcdf(pred_T, pred_S, depth, sss, sst, aviso, times, lat, lon, netcdf_file)
-            return FileResponse(
-                netcdf_file, 
-                media_type='application/x-netcdf', 
-                filename=f'NeSPReSO_{request.date[0]}_to_{request.date[-1]}.nc',
-                headers={
-                    "X-Missing-Data": str(missing_data),
-                    "X-Successful-Data": str(len(lat) - missing_data)
-                }
-            )
-        else:
-            raise HTTPException(status_code=400, detail="Invalid format requested")
+        )
     
     except Exception as e:
         # Log the full traceback for debugging
         traceback_str = ''.join(traceback.format_tb(e.__traceback__))
         error_message = f"Error: {str(e)}\nTraceback: {traceback_str}"
         print(error_message)
+
+        # If there was an error, update all the relevant log entries to indicate failure
+        update_log_status(CSV_LOG_FILE, log_entries, 'Failed')
+
         raise HTTPException(status_code=500, detail=error_message)
+
+def update_log_status(csv_file, log_entries, status):
+    """
+    Updates the status for all rows in `log_entries` to the provided status.
+    """
+    with open(csv_file, mode='r') as file:
+        lines = file.readlines()
+
+    updated_lines = []
+    for line in lines:
+        if any(all(str(value) in line for value in entry[:5]) for entry in log_entries):
+            parts = line.strip().split(',')
+            parts[-1] = status
+            updated_lines.append(','.join(parts) + '\n')
+        else:
+            updated_lines.append(line)
+
+    with open(csv_file, mode='w', newline='') as file:
+        file.writelines(updated_lines)
+
+
+def datetime_to_datenum(python_datetime):
+    days_from_year_1_to_year_0 = 366
+    matlab_base = datetime(1, 1, 1).toordinal() - days_from_year_1_to_year_0
+    ordinal = python_datetime.toordinal()
+    days_difference = ordinal - matlab_base
+
+    hour, minute, second = python_datetime.hour, python_datetime.minute, python_datetime.second
+    matlab_datenum = days_difference + (hour / 24.0) + (minute / 1440.0) + (second / 86400.0)
+    return matlab_datenum
 
 # if __name__ == "__main__":
 #     import uvicorn

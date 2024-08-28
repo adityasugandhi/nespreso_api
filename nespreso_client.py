@@ -14,8 +14,7 @@ async def fetch_predictions(lat, lon, date, filename="output.nc", format="netcdf
     - format: str, either 'netcdf' or 'json' (default is 'netcdf')
 
     Returns:
-    - If format is 'netcdf', saves the file to `filename` and returns the file path.
-    - If format is 'json', returns the JSON response.
+    - Saves the NetCDF file to `filename` and returns the file path.
     """
 
     # Define the API URL
@@ -25,8 +24,7 @@ async def fetch_predictions(lat, lon, date, filename="output.nc", format="netcdf
     data = {
         "lat": lat,
         "lon": lon,
-        "date": date,
-        "format": format
+        "date": date
     }
 
     # Set a custom timeout (e.g., 60 seconds)
@@ -39,7 +37,7 @@ async def fetch_predictions(lat, lon, date, filename="output.nc", format="netcdf
         if response.status_code == 200:
             content_type = response.headers.get('Content-Type')
             
-            if content_type == 'application/x-netcdf' and format == "netcdf":
+            if content_type == 'application/x-netcdf':
                 # Save the NetCDF file
                 with open(filename, "wb") as f:
                     f.write(response.content)
@@ -64,7 +62,7 @@ async def fetch_predictions(lat, lon, date, filename="output.nc", format="netcdf
             print("Response content:", response.content)
             return None
 
-def get_predictions(lat, lon, date, filename="output.nc", format="netcdf"):
+def get_predictions(lat, lon, date, filename="output.nc"):
     """
     Wrapper function to run the async function in a synchronous context.
 
@@ -73,7 +71,6 @@ def get_predictions(lat, lon, date, filename="output.nc", format="netcdf"):
     - lon: list of float, list of longitudes
     - date: list of str, list of dates in 'YYYY-MM-DD' format
     - filename: str, path where the output NetCDF file will be saved (default is 'output.nc')
-    - format: str, either 'netcdf' or 'json' (default is 'netcdf')
 
     Returns:
     - The result from fetch_predictions.
@@ -81,17 +78,17 @@ def get_predictions(lat, lon, date, filename="output.nc", format="netcdf"):
     lat, lon, date = preprocess_inputs(lat, lon, date)
     print(f"Fetching predictions for {len(lat)} points...")
     if asyncio.get_event_loop().is_running():
-        return asyncio.ensure_future(fetch_predictions(lat, lon, date, filename, format))
+        return asyncio.ensure_future(fetch_predictions(lat, lon, date, filename))
     else:
-        return asyncio.run(fetch_predictions(lat, lon, date, filename, format))
+        return asyncio.run(fetch_predictions(lat, lon, date, filename))
 
 # Example of how to use the function from another script
 if __name__ == "__main__":
     # Example usage
     latitudes = [25.0, 26.0, 27.0]
     longitudes = [-83.0, -84.0, -85.0]
-    dates = ["2018-08-20", "2018-08-21", "2018-08-22"]
+    dates = ["2010-08-20", "2018-08-21", "2018-08-22"]
     output_file = "my_output.nc"
 
-    result = get_predictions(latitudes, longitudes, dates, filename=output_file, format="netcdf")
+    result = get_predictions(latitudes, longitudes, dates, filename=output_file)
     print("Result:", result)
