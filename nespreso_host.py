@@ -25,9 +25,9 @@ CSV_LOG_FILE = '/home/jrm22n/nespreso_api/nespreso_api/log/nespreso_queries_log.
 
 # Ensure the CSV file has a header row if it doesn't exist
 if not os.path.exists(CSV_LOG_FILE):
-    with open(CSV_LOG_FILE, mode='w', newline='') as file:
+    with open(CSV_LOG_FILE, mode='a', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(['timestamp', 'lat', 'lon', 'date', 'missing_data', 'success'])
+        writer.writerow(['timestamp', 'client_ip', 'latitudes', 'longitudes', 'dates', 'missing_data', 'status'])
 
 def save_to_netcdf(pred_T, pred_S, depth, sss, sst, aviso, times, lat, lon, file_name='output.nc'):
     profile_number = np.arange(pred_T.shape[1])
@@ -133,22 +133,27 @@ async def predict(request: PredictRequest, req: Request):
         pred_S = synthetics[1]
         depth = np.arange(full_dataset.min_depth, full_dataset.max_depth + 1)
 
-        # Log request information to CSV (initial log with 'Pending' status)
-        log_entries = []
-        for i in range(len(lat)):
-            log_entries.append([datetime.utcnow().isoformat(), req.client.host, lat[i], lon[i], times[i].isoformat(), 
-                                missing_data, 'Pending'])
+        # Log request information to CSV with aggregated data
+        log_entry = [
+            datetime.utcnow().isoformat(),
+            req.client.host,
+            ';'.join(map(str, lat)),
+            ';'.join(map(str, lon)),
+            ';'.join([time.isoformat() for time in times]),
+            str(missing_data),
+            'Pending'
+        ]
         
         with open(CSV_LOG_FILE, mode='a', newline='') as file:
             writer = csv.writer(file)
-            writer.writerows(log_entries)
+            writer.writerow(log_entry)
 
         # Attempt to generate and send the NetCDF file
         netcdf_file = f"/tmp/NeSPReSO_{request.date[0]}_to_{request.date[-1]}.nc"
         save_to_netcdf(pred_T, pred_S, depth, sss, sst, aviso, times, lat, lon, netcdf_file)
 
-        # If successful, update all the relevant log entries to indicate success
-        update_log_status(CSV_LOG_FILE, log_entries, 'Success')
+        # Update log entry to indicate success
+        update_log_status(CSV_LOG_FILE, log_entry, 'Success')
 
         return FileResponse(
             netcdf_file, 
@@ -166,21 +171,21 @@ async def predict(request: PredictRequest, req: Request):
         error_message = f"Error: {str(e)}\nTraceback: {traceback_str}"
         print(error_message)
 
-        # If there was an error, update all the relevant log entries to indicate failure
-        update_log_status(CSV_LOG_FILE, log_entries, 'Failed')
+        # Update log entry to indicate failure
+        update_log_status(CSV_LOG_FILE, log_entry, 'Failed')
 
         raise HTTPException(status_code=500, detail=error_message)
 
-def update_log_status(csv_file, log_entries, status):
+def update_log_status(csv_file, log_entry, status):
     """
-    Updates the status for all rows in `log_entries` to the provided status.
+    Updates the status for the given log entry in the CSV file.
     """
     with open(csv_file, mode='r') as file:
         lines = file.readlines()
 
     updated_lines = []
     for line in lines:
-        if any(all(str(value) in line for value in entry[:5]) for entry in log_entries):
+        if all(str(value) in line for value in log_entry[:6]):
             parts = line.strip().split(',')
             parts[-1] = status
             updated_lines.append(','.join(parts) + '\n')
@@ -189,7 +194,6 @@ def update_log_status(csv_file, log_entries, status):
 
     with open(csv_file, mode='w', newline='') as file:
         file.writelines(updated_lines)
-
 
 def datetime_to_datenum(python_datetime):
     days_from_year_1_to_year_0 = 366

@@ -53,9 +53,9 @@ async def fetch_predictions(lat, lon, date, filename="output.nc", format="netcdf
             else:
                 # Assume it's JSON and return the data
                 result = response.json()
-                print(f"{result['success']} profiles were successfully generated.")
-                if result['missing_data']:
-                    print(f"{result['missing_data']} profiles are missing satellite data.")
+                print(f"{result['success']} profiles successfully generated.")
+                if result['missing_data'] > 0:
+                    print(f"{result['missing_data']} points missing satellite data (not generated).")
                 return result
         else:
             print(f"Request failed with status code {response.status_code}")
