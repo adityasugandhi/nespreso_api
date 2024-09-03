@@ -18,7 +18,6 @@ async def fetch_predictions(lat, lon, date, filename="output.nc", format="netcdf
     """
 
     # Define the API URL
-    # API_URL = "http://poseidon.sc.fsu.edu:8000/predict" # working remote (IP)
     API_URL = "http://144.174.11.107:8000/predict" # working remote (IP)
 
     # Prepare the data payload
@@ -88,7 +87,7 @@ if __name__ == "__main__":
     # Example usage
     latitudes = [25.0, 26.0, 27.0]
     longitudes = [-83.0, -84.0, -85.0]
-    dates = ["2015-08-20", "2013-08-21", "2016-08-22"]
+    dates = ["2010-08-20", "2018-08-21", "2018-08-22"]
     output_file = "my_output.nc"
 
     result = get_predictions(latitudes, longitudes, dates, filename=output_file)
