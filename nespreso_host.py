@@ -9,7 +9,8 @@ import pickle
 import torch
 import numpy as np
 import xarray as xr
-from fastapi.responses import FileResponse
+
+from fastapi.responses import *
 from singleFileModel_SAT import TemperatureSalinityDataset, PredictionModel, load_satellite_data, prepare_inputs
 
 # Add TemperatureSalinityDataset and PredictionModel to the global namespace, so it can run from bash
@@ -21,7 +22,7 @@ sys.modules['__mp_main__'].PredictionModel = PredictionModel
 app = FastAPI()
 
 # Define the path to the CSV log file
-CSV_LOG_FILE = '/home/jrm22n/nespreso_api/nespreso_api/log/nespreso_queries_log.csv'
+CSV_LOG_FILE = '/log/nespreso_queries_log.csv'
 
 # Ensure the CSV file has a header row if it doesn't exist
 if not os.path.exists(CSV_LOG_FILE):
@@ -101,6 +102,25 @@ class PredictRequest(BaseModel):
     lat: conlist(float, min_length=1)
     lon: conlist(float, min_length=1)
     date: conlist(str, min_length=1)  # Expecting an array of dates in 'YYYY-MM-DD' format
+class GetFile(BaseModel):
+    fileUrl: str
+
+@app.get("/file")
+async def get_file(file: GetFile, req: Request):
+    file_path = file.fileUrl
+    
+    # Validate the file path
+    if not os.path.isfile(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    def iterfile():
+        with open(file_path, "rb") as f:
+            yield from f
+    
+    return StreamingResponse(iterfile(), media_type='application/octet-stream')
+    
+
+
 
 @app.post("/predict")
 async def predict(request: PredictRequest, req: Request):
@@ -154,16 +174,16 @@ async def predict(request: PredictRequest, req: Request):
 
         # Update log entry to indicate success
         update_log_status(CSV_LOG_FILE, log_entry, 'Success')
-
-        return FileResponse(
-            netcdf_file, 
-            media_type='application/x-netcdf', 
-            filename=f'NeSPReSO_{request.date[0]}_to_{request.date[-1]}.nc',
-            headers={
-                "X-Missing-Data": str(missing_data),
-                "X-Successful-Data": str(len(lat) - missing_data)
-            }
-        )
+        return JSONResponse(content={"file_url": netcdf_file})
+        # return FileResponse(
+        #     netcdf_file, 
+        #     media_type='application/x-netcdf', 
+        #     filename=f'NeSPReSO_{request.date[0]}_to_{request.date[-1]}.nc',
+        #     headers={
+        #         "X-Missing-Data": str(missing_data),
+        #         "X-Successful-Data": str(len(lat) - missing_data)
+        #     }
+        # )
     
     except Exception as e:
         # Log the full traceback for debugging
