@@ -1,0 +1,6 @@
+
+		begin
+      f = addfile("/unity/g2/jmiranda/nespreso_api/my_output.nc","r")
+      print(f)
+		end
+    

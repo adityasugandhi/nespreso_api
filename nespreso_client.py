@@ -1,6 +1,7 @@
 import httpx
 import asyncio
 from utils import preprocess_inputs
+import datetime
 
 async def fetch_predictions(lat, lon, date, filename="output.nc", format="netcdf"):
     """
@@ -18,7 +19,9 @@ async def fetch_predictions(lat, lon, date, filename="output.nc", format="netcdf
     """
 
     # Define the API URL
-    API_URL = "http://144.174.11.107:8000/predict" # working remote (IP)
+    API_URL = "http://127.0.0.1:5000/predict" # working remote (IP)
+    # API_URL = "http://ozavala.coaps.fsu.edu:8000/predict" # working remote (IP)
+    # API_URL = "http://144.174.11.107:8000/predict" # working remote (IP)
 
     # Prepare the data payload
     data = {
@@ -28,7 +31,7 @@ async def fetch_predictions(lat, lon, date, filename="output.nc", format="netcdf
     }
 
     # Set a custom timeout (e.g., 60 seconds)
-    timeout = httpx.Timeout(60.0, connect=10.0)
+    timeout = httpx.Timeout(5000, connect=10.0)
 
     # Make an async request to the API
     async with httpx.AsyncClient(timeout=timeout) as client:
@@ -87,7 +90,15 @@ if __name__ == "__main__":
     # Example usage
     latitudes = [25.0, 26.0, 27.0]
     longitudes = [-83.0, -84.0, -85.0]
-    dates = ["2010-08-20", "2018-08-21", "2018-08-22"]
+    dates = ["2015-08-20", "2018-08-21", "2018-08-22"]
+    #let's use 300 consecutive datetime dates:
+    # start = datetime.datetime(2015, 1, 1)
+    # dates = [start + datetime.timedelta(days=i) for i in range(300)]
+    
+    # # make lat lon and dates 100 times longer (just repeat)
+    # latitudes = latitudes * 100
+    # longitudes = longitudes * 100
+    # dates = dates * 100
     output_file = "my_output.nc"
 
     result = get_predictions(latitudes, longitudes, dates, filename=output_file)
