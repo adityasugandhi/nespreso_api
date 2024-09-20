@@ -1,5 +1,5 @@
 // src/App.js
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import MyMap from './components/Map';
 
 function App() {
@@ -11,6 +11,7 @@ function App() {
   const [mapData, setMapData] = useState({ latitudes: [], longitudes: [] });
   const [selectedCoords, setSelectedCoords] = useState(null);
   const [selectedDates, setSelectedDates] = useState([]);
+  const mapRef = useRef();
 
   const handleCheckboxChange = (feature) => {
     setSelectedFeatures(prev => ({
@@ -68,8 +69,15 @@ function App() {
     setMapData({ latitudes: [], longitudes: [] });
     setSelectedCoords(null);
     setSelectedDates([]);
-    // If you have a ref to the Map component, you can call its reset method here
-    // For example: mapRef.current.reset();
+    if (mapRef.current) {
+      mapRef.current.reset();
+    }
+  };
+
+  const handleFinishPolygon = () => {
+    if (mapRef.current) {
+      mapRef.current.finishPolygon();
+    }
   };
 
   return (
@@ -80,6 +88,7 @@ function App() {
       <main className="flex flex-col md:flex-row flex-grow overflow-hidden">
         <div className="w-full md:w-1/2 p-4">
           <MyMap 
+            ref={mapRef}
             onDataChange={setMapData} 
             selectedFeatures={selectedFeatures} 
             onMapClick={handleMapClick}
@@ -114,6 +123,14 @@ function App() {
                 className="form-checkbox"
               />
               <span>Areas</span>
+              {selectedFeatures.areas && (
+                <button
+                  onClick={handleFinishPolygon}
+                  className="ml-2 bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-2 rounded text-sm"
+                >
+                  Finish Polygon
+                </button>
+              )}
             </label>
           </div>
           <div className="mt-4 space-x-2">
