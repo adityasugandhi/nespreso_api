@@ -1,6 +1,10 @@
 // src/App.js
 import React, { useState, useRef } from 'react';
 import MyMap from './components/Map';
+import { DatePicker } from '@mui/x-date-pickers';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { TextField } from '@mui/material';
 
 function App() {
   const [selectedFeatures, setSelectedFeatures] = useState({
@@ -10,7 +14,7 @@ function App() {
   });
   const [mapData, setMapData] = useState({ latitudes: [], longitudes: [] });
   const [selectedCoords, setSelectedCoords] = useState(null);
-  const [selectedDates, setSelectedDates] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(null);
   const mapRef = useRef();
 
   const handleCheckboxChange = (feature) => {
@@ -26,8 +30,8 @@ function App() {
       return;
     }
 
-    if (selectedDates.length === 0) {
-      alert('Please select at least one date before submitting.');
+    if (selectedDate === null) {
+      alert('Please select a date before submitting.');
       return;
     }
 
@@ -40,7 +44,7 @@ function App() {
         body: JSON.stringify({
           selectedFeatures,
           mapData,
-          selectedDates: selectedDates.map(date => date.toISOString().split('T')[0]),
+          selectedDate: selectedDate.toISOString().split('T')[0],
         }),
       });
 
@@ -68,7 +72,7 @@ function App() {
     });
     setMapData({ latitudes: [], longitudes: [] });
     setSelectedCoords(null);
-    setSelectedDates([]);
+    setSelectedDate(null);
     if (mapRef.current) {
       mapRef.current.reset();
     }
@@ -132,7 +136,17 @@ function App() {
                 </button>
               )}
             </label>
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+               <DatePicker
+                label="Select Date"
+                value={selectedDate}
+                onChange={(newValue) => setSelectedDate(newValue)}
+                renderInput={(params) => <TextField {...params} className="w-full" />}
+              />
+            </LocalizationProvider>
           </div>
+          
+
           <div className="mt-4 space-x-2">
             <button
               onClick={handleSubmit}
@@ -165,13 +179,13 @@ function App() {
             </div>
           </div>
           <div className="mt-4 p-3 bg-white rounded shadow">
-            <h3 className="font-semibold mb-2">Selected Dates:</h3>
+            {/* <h3 className="font-semibold mb-2">Selected Dates:</h3> */}
             <div className="max-h-60 overflow-y-auto">
-              {selectedDates.map((date, index) => (
-                <div key={index} className="mb-1">
-                  {date.toISOString().split('T')[0]}
+              {selectedDate && (
+                <div className="mb-1">
+                  {selectedDate.toISOString().split('T')[0]}
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </div>
