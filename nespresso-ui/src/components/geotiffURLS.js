@@ -23,7 +23,7 @@ const iterateFolder = (folderPath, ArrayUrls) => {
         }
 
         if (stats.isFile()) {
-          console.log(`File: ${fullPath}`);
+          // console.log(`File: ${fullPath}`);
           ArrayUrls.push(fullPath);
         } else if (stats.isDirectory()) {
           console.log(`Directory: ${fullPath}`);

@@ -74,8 +74,37 @@ const MapEventHandler = ({ addMarker, addPolyline, addPolygon, onMapClick, selec
       }
       if (selectedFeatures.areas) {
         addMarker({ lat, lng });
-        setPolygonPoints([...polygonPoints, [lat, lng]]);
+        
+        // If it's the first point (p1), just store it and return
+        if (polygonPoints.length === 0) {
+          setPolygonPoints([[lat, lng]]);
+        } else if (polygonPoints.length === 1) {
+          // When second point (p2) is selected, calculate rectangle coordinates
+          const p1 = polygonPoints[0];
+          const p2 = [lat, lng];
+          
+          // Calculate min and max latitudes and longitudes
+          const minLat = Math.min(p1[0], p2[0]);
+          const maxLat = Math.max(p1[0], p2[0]);
+          const minLng = Math.min(p1[1], p2[1]);
+          const maxLng = Math.max(p1[1], p2[1]);
+          
+          // Define the four corners of the rectangle
+          const rectanglePoints = [
+            [minLat, minLng], // Bottom-left
+            [minLat, maxLng], // Bottom-right
+            [maxLat, maxLng], // Top-right
+            [maxLat, minLng], // Top-left
+            [minLat, minLng]  // Close the polygon (back to bottom-left)
+          ];
+      
+          // Set the polygon points to form the rectangle
+          setPolygonPoints(rectanglePoints);
+          addPolygon(rectanglePoints);
+          setPolygonPoints([]);
+        }
       }
+      
     },
   });
 
@@ -164,7 +193,7 @@ const MyMap = forwardRef(({ onDataChange, selectedFeatures, onMapClick }, ref) =
 
     onDataChange({ latitudes, longitudes });
   }, [markers, polylines, polygons, onDataChange]);
-console.log(GEO_TIFF_URL);
+// console.log(GEO_TIFF_URL);
   return (
     <MapContainer center={GULF_OF_MEXICO_CENTER} zoom={INITIAL_ZOOM} className="h-full w-full">
       <TileLayer
@@ -194,7 +223,7 @@ console.log(GEO_TIFF_URL);
       {polygons.map((polygon, idx) => (
         <Polygon key={idx} positions={polygon} color="green" />
       ))}
-      {currentPolygon.length > 0 && <Polygon positions={currentPolygon} color="red" />}
+      {currentPolygon.length > 1 && <Polygon positions={currentPolygon} color="red"  />}
       <Polygon
         positions={boundaryCoordinates}
         pathOptions={{ fillColor: 'white', fillOpacity: 0.1, color: 'grey', weight: 1 }}
