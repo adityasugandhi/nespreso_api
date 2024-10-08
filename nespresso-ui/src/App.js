@@ -4,7 +4,19 @@ import MyMap from './components/Map';
 import { DatePicker } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { TextField } from '@mui/material';
+import { TextField, Slider} from '@mui/material';
+// import { BrowserRouter, Route, Routes } from 'react-router-dom';
+// import MapWithGeoTIFF from './newmap';
+
+// const Router = () => {
+//   return (
+//     <BrowserRouter>
+//       <Routes>
+//       </Routes>
+//     </BrowserRouter>
+//   );
+// };
+
 
 function App() {
   const [selectedFeatures, setSelectedFeatures] = useState({
@@ -15,6 +27,7 @@ function App() {
   const [mapData, setMapData] = useState({ latitudes: [], longitudes: [] });
   const [selectedCoords, setSelectedCoords] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [sliderValue, setSliderValue] = useState(0.5);
   const mapRef = useRef();
 
   const handleCheckboxChange = (feature) => {
@@ -45,6 +58,7 @@ function App() {
           selectedFeatures,
           mapData,
           selectedDate: selectedDate.toISOString().split('T')[0],
+          sliderValue : sliderValue // Added  slider value to the request body
         }),
       });
 
@@ -84,10 +98,15 @@ function App() {
     }
   };
 
+  const handleSliderChange = (event, newValue) => {
+    setSliderValue(newValue); // Update the slider value when it changes
+  };
+
+
   return (
     <div className="flex flex-col h-screen">
       <header className="bg-blue-600 text-white p-4 shadow-md">
-        <h1 className="text-2xl font-bold">Map Selector</h1>
+        <h1 className="text-2xl font-bold">NetCDF generation </h1>
       </header>
       <main className="flex flex-col md:flex-row flex-grow overflow-hidden">
         <div className="w-full md:w-1/2 p-4">
@@ -144,6 +163,22 @@ function App() {
                 renderInput={(params) => <TextField {...params} className="w-full" />}
               />
             </LocalizationProvider>
+
+            <div className="flex items-center space-x-2 w-2/6">
+              <span>Points:</span>
+              <Slider
+                value={sliderValue}
+                valueLabelDisplay="auto"
+                valueLabelFormat={(value) => `${value}`}
+                defaultValue={0.5}
+                step={0.1}
+                marks
+                min={0}
+                max={1}
+                onChange={handleSliderChange}
+              />
+              <div className='font-bold'>:{sliderValue}</div>
+              </div>
           </div>
           
 
